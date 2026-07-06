@@ -25,6 +25,17 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    isAdmin: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
+    solvedProblems: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Problem',
+      },
+    ],
   },
   {
     timestamps: true,

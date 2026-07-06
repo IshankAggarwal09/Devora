@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import passport from 'passport';
 import connectDB from './config/db.js';
 import authRoutes from './routes/auth.routes.js';
+import problemRoutes from './routes/problem.routes.js';
 import './config/passport.js';
 
 dotenv.config();
@@ -26,6 +27,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/problems', problemRoutes);
 
 const PORT = process.env.PORT || 5000;
 
