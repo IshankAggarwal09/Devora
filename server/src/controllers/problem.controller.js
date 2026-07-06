@@ -4,16 +4,10 @@ import User from '../models/user.model.js';
 
 export const createProblem = async (req, res) => {
   try {
-    const { title, slug, description, difficulty, topics, constraints, timeLimit, memoryLimit, testCases } = req.body;
-
-    const existingProblem = await Problem.findOne({ slug });
-    if (existingProblem) {
-      return res.status(400).json({ error: 'Problem with this slug already exists' });
-    }
+    const { title, description, difficulty, topics, constraints, timeLimit, memoryLimit, testCases } = req.body;
 
     const problem = await Problem.create({
       title,
-      slug,
       description,
       difficulty,
       topics,
@@ -26,6 +20,9 @@ export const createProblem = async (req, res) => {
 
     res.status(201).json(problem);
   } catch (error) {
+    if (error.code === 11000 && error.keyPattern && error.keyPattern.slug) {
+      return res.status(400).json({ error: 'Problem with this auto-generated slug already exists' });
+    }
     console.error('Error creating problem:', error);
     res.status(500).json({ error: 'Server error creating problem' });
   }
@@ -148,6 +145,14 @@ export const submitProblem = async (req, res) => {
 
       totalExecutionTime += execRes.executionTime;
 
+      if (execRes.verdict === 'system_error') {
+        finalVerdict = 'System Error';
+        failedTestCaseIndex = i;
+        finalStderr = execRes.stderr || 'Internal execution engine failure';
+        testCaseResults.push({ passed: false, executionTime: execRes.executionTime, error: finalStderr });
+        break;
+      }
+
       if (execRes.verdict === 'compile_error') {
         finalVerdict = 'Compile Error';
         failedTestCaseIndex = i;
@@ -193,10 +198,14 @@ export const submitProblem = async (req, res) => {
     });
 
     if (finalVerdict === 'Accepted') {
-      await User.findByIdAndUpdate(
-        req.user._id,
-        { $addToSet: { solvedProblems: problem._id } }
-      );
+      try {
+        await User.findByIdAndUpdate(
+          req.user._id,
+          { $addToSet: { solvedProblems: problem._id } }
+        );
+      } catch (userUpdateErr) {
+        console.error('Non-fatal error: Failed to update user solvedProblems list', userUpdateErr);
+      }
     }
 
     res.status(201).json({
