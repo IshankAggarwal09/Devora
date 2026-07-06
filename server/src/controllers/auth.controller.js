@@ -105,5 +105,5 @@ export const getMe = async (req, res) => {
 
 export const githubAuthCallback = (req, res) => {
   generateToken(res, req.user._id);
-  res.redirect('http://localhost:5173');
+  res.redirect('http://localhost:5174');
 };

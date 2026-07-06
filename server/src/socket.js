@@ -186,7 +186,8 @@ export const initSocket = (httpServer) => {
           const tc = problem.testCases[i];
           let execRes;
           try {
-            const response = await fetch(`${EXEC_URL}/execute`, {
+            const execUrl = process.env.EXECUTION_ENGINE_URL || 'http://localhost:5001';
+            const response = await fetch(`${execUrl}/execute`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -237,7 +238,7 @@ export const initSocket = (httpServer) => {
            
            participant.score += finalProblemScore;
            participant.lastAcceptedAt = Date.now();
-        } else {
+        } else if (finalVerdict !== 'System Error') {
            participant.penalties += 1;
         }
 
