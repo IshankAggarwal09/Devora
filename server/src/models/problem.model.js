@@ -65,14 +65,13 @@ const problemSchema = new mongoose.Schema(
   }
 );
 
-problemSchema.pre('validate', function (next) {
+problemSchema.pre('validate', function () {
   if (this.isModified('title') && this.title) {
     this.slug = this.title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)+/g, '');
   }
-  next();
 });
 
 const Problem = mongoose.model('Problem', problemSchema);
