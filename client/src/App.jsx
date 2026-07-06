@@ -6,6 +6,8 @@ import { fetchCurrentUser } from './store/authSlice';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
+import Problems from './pages/Problems';
+import ProblemDetail from './pages/ProblemDetail';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 
@@ -30,6 +32,8 @@ function App() {
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/problems" element={<Problems />} />
+          <Route path="/problems/:slug" element={<ProblemDetail />} />
           {/* Default protected redirect */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Route>

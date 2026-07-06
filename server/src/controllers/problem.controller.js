@@ -112,7 +112,7 @@ export const submitProblem = async (req, res) => {
       return res.status(400).json({ error: 'Code is required' });
     }
 
-    const EXEC_URL = process.env.EXECUTION_ENGINE_URL || 'http://localhost:5001';
+    const EXEC_URL = process.env.EXECUTION_ENGINE_URL || 'http://127.0.0.1:5001';
     
     let totalExecutionTime = 0;
     let finalVerdict = 'Accepted';
@@ -220,5 +220,112 @@ export const submitProblem = async (req, res) => {
   } catch (error) {
     console.error('Submit problem error:', error);
     res.status(500).json({ error: 'Server error processing submission' });
+  }
+};
+
+export const runProblem = async (req, res) => {
+  try {
+    const { language, code } = req.body;
+    const problem = await Problem.findById(req.params.id);
+
+    if (!problem) {
+      return res.status(404).json({ error: 'Problem not found' });
+    }
+
+    if (!['cpp', 'java'].includes(language)) {
+      return res.status(400).json({ error: 'Unsupported language' });
+    }
+    
+    if (!code) {
+      return res.status(400).json({ error: 'Code is required' });
+    }
+
+    const EXEC_URL = process.env.EXECUTION_ENGINE_URL || 'http://127.0.0.1:5001';
+    
+    // Filter test cases to only sample ones
+    const sampleTestCases = problem.testCases.filter((tc) => tc.isSample);
+    const testCaseResults = [];
+    
+    let totalExecutionTime = 0;
+
+    for (let i = 0; i < sampleTestCases.length; i++) {
+      const tc = sampleTestCases[i];
+      
+      let execRes;
+      try {
+        const response = await fetch(`${EXEC_URL}/execute`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            language,
+            code,
+            input: tc.input,
+            timeLimit: problem.timeLimit,
+            memoryLimit: problem.memoryLimit
+          })
+        });
+        
+        execRes = await response.json();
+      } catch (err) {
+        console.error('Execution Engine Error:', err);
+        return res.status(500).json({ error: 'Execution engine unreachable' });
+      }
+
+      totalExecutionTime += execRes.executionTime || 0;
+
+      const result = {
+        input: tc.input,
+        expectedOutput: tc.expectedOutput,
+        actualOutput: execRes.stdout || '',
+        stderr: execRes.stderr || null,
+        executionTime: execRes.executionTime,
+        passed: false,
+        status: 'Wrong Answer'
+      };
+
+      if (execRes.verdict === 'system_error') {
+        result.status = 'System Error';
+      } else if (execRes.verdict === 'compile_error') {
+        result.status = 'Compile Error';
+      } else if (execRes.verdict === 'timeout') {
+        result.status = 'Time Limit Exceeded';
+      } else if (execRes.verdict === 'runtime_error') {
+        result.status = 'Runtime Error';
+      } else {
+        if (result.actualOutput.trim() === tc.expectedOutput.trim()) {
+          result.passed = true;
+          result.status = 'Accepted';
+        }
+      }
+
+      testCaseResults.push(result);
+    }
+
+    res.status(200).json({
+      executionTime: totalExecutionTime,
+      results: testCaseResults,
+    });
+
+  } catch (error) {
+    console.error('Run problem error:', error);
+    res.status(500).json({ error: 'Server error processing run' });
+  }
+};
+
+export const getLatestSubmission = async (req, res) => {
+  try {
+    const submission = await Submission.findOne({
+      user: req.user._id,
+      problem: req.params.id,
+    }).sort({ createdAt: -1 });
+
+    if (!submission) {
+      return res.status(200).json(null);
+    }
+
+    res.status(200).json(submission);
+  } catch (error) {
+    console.error('Error fetching latest submission:', error);
+    res.status(500).json({ error: 'Server error fetching latest submission' });
   }
 };

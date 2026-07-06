@@ -27,6 +27,12 @@ const Navbar = () => {
             {user ? (
               <>
                 <Link
+                  to="/problems"
+                  className="text-sm font-medium text-muted hover:text-foreground transition-colors"
+                >
+                  Practice
+                </Link>
+                <Link
                   to="/dashboard"
                   className="text-sm font-medium text-muted hover:text-foreground transition-colors"
                 >

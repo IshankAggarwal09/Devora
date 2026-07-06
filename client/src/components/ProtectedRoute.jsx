@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 const ProtectedRoute = () => {
   const { user, isLoading } = useSelector((state) => state.auth);
 
-  if (isLoading) {
+  if (isLoading && !user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-ink">
         <Loader2 className="h-8 w-8 animate-spin text-signal" />
