@@ -11,7 +11,7 @@ const EXEC_URL = process.env.EXECUTION_ENGINE_URL || 'http://localhost:5001';
 export const initSocket = (httpServer) => {
   const io = new Server(httpServer, {
     cors: {
-      origin: 'http://localhost:5173',
+      origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://127.0.0.1:5173'],
       credentials: true,
     },
   });
@@ -49,6 +49,7 @@ export const initSocket = (httpServer) => {
 
     // --- battle:join ---
     socket.on('battle:join', async (roomCode) => {
+      console.log(`[socket] battle:join called by ${socket.user.name} for room ${roomCode}`);
       try {
         const battle = await Battle.findOne({ roomCode }).populate('participants.user', 'name avatarUrl githubId');
         if (!battle) {
@@ -58,10 +59,12 @@ export const initSocket = (httpServer) => {
         // Verify they are in the participants array (REST should have done this)
         const isParticipant = battle.participants.some(p => p.user._id.toString() === socket.user._id.toString());
         if (!isParticipant) {
+          console.log(`[socket] User ${socket.user.name} is not a participant in ${roomCode}`);
           return socket.emit('battle:error', 'Not a participant in this battle');
         }
 
         socket.join(roomCode);
+        console.log(`[socket] User ${socket.user.name} successfully joined socket room ${roomCode}`);
         
         // Broadcast to others in room
         io.to(roomCode).emit('battle:participant_joined', battle.participants);
@@ -79,8 +82,11 @@ export const initSocket = (httpServer) => {
 
         // Verify host
         if (battle.host.toString() !== socket.user._id.toString()) {
+          console.log(`[socket] User ${socket.user.name} tried to start battle but is not host.`);
           return socket.emit('battle:error', 'Only the host can start the battle');
         }
+        
+        console.log(`[socket] Host ${socket.user.name} starting battle ${roomCode}`);
 
         // Question Selection Logic (Step 5)
         const matchQuery = {};
@@ -106,10 +112,12 @@ export const initSocket = (httpServer) => {
         battle.startedAt = Date.now();
         await battle.save();
 
-        // Safe problem broadcast (strip testCases)
+        // Safe problem broadcast (strip hidden testCases)
         const safeProblems = selectedProblems.map(p => {
            const safe = { ...p };
-           delete safe.testCases;
+           if (safe.testCases) {
+             safe.testCases = safe.testCases.filter(tc => tc.isSample === true);
+           }
            return safe;
         });
 
@@ -118,6 +126,8 @@ export const initSocket = (httpServer) => {
           duration: battle.duration,
           questions: safeProblems
         });
+        
+        console.log(`[socket] battle:started emitted to room ${roomCode}`);
 
         // Start Timer Sync Heartbeat
         const syncInterval = setInterval(async () => {
@@ -156,32 +166,85 @@ export const initSocket = (httpServer) => {
       }
     });
 
+    // --- battle:finish_early ---
+    socket.on('battle:finish_early', async (roomCode) => {
+      try {
+        const battle = await Battle.findOne({ roomCode, status: 'in_progress' }).populate('participants.user');
+        if (!battle) return;
+
+        const participant = battle.participants.find(p => p.user._id.toString() === socket.user._id.toString());
+        if (participant && !participant.hasFinished) {
+          participant.hasFinished = true;
+          await battle.save();
+          
+          const allFinished = battle.participants.every(p => p.hasFinished);
+          if (allFinished) {
+            battle.status = 'completed';
+            battle.endedAt = Date.now();
+            await battle.save();
+
+            const finalLeaderboard = battle.participants.sort((a, b) => {
+              if (b.score !== a.score) return (b.score || 0) - (a.score || 0);
+              if (!a.lastAcceptedAt) return 1;
+              if (!b.lastAcceptedAt) return -1;
+              return a.lastAcceptedAt.getTime() - b.lastAcceptedAt.getTime();
+            });
+
+            io.to(roomCode).emit('battle:ended', finalLeaderboard);
+          } else {
+            io.to(roomCode).emit('battle:leaderboard_update', battle.participants);
+          }
+        }
+      } catch (err) {
+        console.error('finish_early error:', err);
+      }
+    });
+
     // --- battle:submission ---
-    socket.on('battle:submission', async ({ roomCode, problemId, language, code }) => {
+    socket.on('battle:submission', async ({ roomCode, problemId, language, code }, callback) => {
       try {
         const battle = await Battle.findOne({ roomCode, status: 'in_progress' });
-        if (!battle) return socket.emit('battle:error', 'Battle is not in progress');
+        if (!battle) {
+          if (callback) callback({ error: 'Battle is not in progress' });
+          return;
+        }
 
         // Verify time hasn't naturally expired before the interval caught it
         const timeElapsed = Date.now() - battle.startedAt.getTime();
         if (timeElapsed >= battle.duration * 60 * 1000) {
-           return socket.emit('battle:error', 'Battle time has expired');
+           if (callback) callback({ error: 'Battle time has expired' });
+           return;
         }
 
         const participantIndex = battle.participants.findIndex(p => p.user.toString() === socket.user._id.toString());
-        if (participantIndex === -1) return;
+        if (participantIndex === -1) {
+          if (callback) callback({ error: 'Not a participant' });
+          return;
+        }
         const participant = battle.participants[participantIndex];
+
+        if (participant.hasFinished) {
+          if (callback) callback({ error: 'You have already finished the battle.' });
+          return;
+        }
 
         // Check if already solved
         const alreadySolved = participant.solvedProblems.some(sp => sp.problem.toString() === problemId && sp.verdict === 'Accepted');
         if (alreadySolved) {
-           return socket.emit('battle:error', 'Problem already solved');
+           if (callback) callback({ error: 'Problem already solved' });
+           return;
         }
 
         const problem = await Problem.findById(problemId);
-        if (!problem) return;
+        if (!problem) {
+          if (callback) callback({ error: 'Problem not found' });
+          return;
+        }
 
         let finalVerdict = 'Accepted';
+        let finalError = null;
+        let failedIndex = 0;
+        
         for (let i = 0; i < problem.testCases.length; i++) {
           const tc = problem.testCases[i];
           let execRes;
@@ -201,17 +264,19 @@ export const initSocket = (httpServer) => {
             execRes = await response.json();
           } catch (err) {
              finalVerdict = 'System Error';
+             finalError = err.message;
              break;
           }
 
-          if (execRes.verdict === 'system_error') { finalVerdict = 'System Error'; break; }
-          if (execRes.verdict === 'compile_error') { finalVerdict = 'Compile Error'; break; }
-          if (execRes.verdict === 'timeout') { finalVerdict = 'Time Limit Exceeded'; break; }
-          if (execRes.verdict === 'runtime_error') { finalVerdict = 'Runtime Error'; break; }
+          if (execRes.verdict === 'system_error') { finalVerdict = 'System Error'; finalError = execRes.error; break; }
+          if (execRes.verdict === 'compile_error') { finalVerdict = 'Compile Error'; finalError = execRes.stderr; break; }
+          if (execRes.verdict === 'timeout') { finalVerdict = 'Time Limit Exceeded'; failedIndex = i; break; }
+          if (execRes.verdict === 'runtime_error') { finalVerdict = 'Runtime Error'; finalError = execRes.stderr; break; }
           
           const actualOutput = execRes.stdout || '';
           if (actualOutput.trim() !== tc.expectedOutput.trim()) {
             finalVerdict = 'Wrong Answer';
+            failedIndex = i;
             break;
           }
         }
@@ -244,6 +309,17 @@ export const initSocket = (httpServer) => {
 
         await battle.save();
 
+        // Send callback to user
+        if (callback) {
+          callback({
+            verdict: finalVerdict,
+            totalTestCases: problem.testCases.length,
+            failedTestCaseIndex: failedIndex,
+            stderr: finalError,
+            error: finalVerdict === 'System Error' ? finalError : null
+          });
+        }
+
         // Populate users for leaderboard
         await battle.populate('participants.user', 'name avatarUrl githubId');
         
@@ -272,6 +348,7 @@ export const initSocket = (httpServer) => {
 
       } catch (err) {
          console.error('Socket submission error:', err);
+         if (callback) callback({ error: 'Server error during submission' });
       }
     });
 

@@ -22,6 +22,10 @@ const participantProgressSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  hasFinished: {
+    type: Boolean,
+    default: false,
+  },
   solvedProblems: [
     {
       problem: {

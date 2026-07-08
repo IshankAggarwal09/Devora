@@ -8,7 +8,7 @@ import { protect } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-router.post('/', protect, createBattle);
+router.post('/create', protect, createBattle);
 router.post('/:roomCode/join', protect, joinBattle);
 router.get('/:roomCode', protect, getBattle);
 

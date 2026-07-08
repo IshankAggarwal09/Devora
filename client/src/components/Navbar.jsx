@@ -1,12 +1,21 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
+import { useEffect } from 'react';
 import { logoutUser } from '../store/authSlice';
 import Wordmark from './Wordmark';
 
 const Navbar = () => {
   const { user } = useSelector((state) => state.auth);
+  const { currentBattle } = useSelector((state) => state.battle);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (currentBattle?.status === 'in_progress' && !location.pathname.startsWith(`/battles/${currentBattle.roomCode}`)) {
+      navigate(`/battles/${currentBattle.roomCode}`);
+    }
+  }, [currentBattle?.status, currentBattle?.roomCode, location.pathname, navigate]);
 
   const handleLogout = async () => {
     await dispatch(logoutUser());
@@ -18,19 +27,39 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex-shrink-0 flex items-center">
-            <Link to="/">
+            {currentBattle?.status === 'in_progress' ? (
               <Wordmark />
-            </Link>
+            ) : (
+              <Link to="/">
+                <Wordmark />
+              </Link>
+            )}
           </div>
 
           <div className="flex items-center gap-6">
-            {user ? (
+            {currentBattle?.status === 'in_progress' ? (
+              <div className="text-verdict-red font-bold font-utility animate-pulse">
+                Battle in Progress
+              </div>
+            ) : user ? (
               <>
                 <Link
                   to="/problems"
                   className="text-sm font-medium text-muted hover:text-foreground transition-colors"
                 >
                   Practice
+                </Link>
+                <Link
+                  to="/battles/create"
+                  className="text-sm font-medium text-muted hover:text-foreground transition-colors"
+                >
+                  Create Battle
+                </Link>
+                <Link
+                  to="/battles/join"
+                  className="text-sm font-medium text-muted hover:text-foreground transition-colors"
+                >
+                  Join Battle
                 </Link>
                 <Link
                   to="/dashboard"

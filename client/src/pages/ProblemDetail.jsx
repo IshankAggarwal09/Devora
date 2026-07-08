@@ -25,8 +25,9 @@ const ProblemDetail = () => {
   const { currentSubmission, isSubmitting, error: submitError, runResult, isRunning, runError, lastSavedSubmission } = useSelector((state) => state.submission);
   const { user } = useSelector((state) => state.auth);
 
-  const [language, setLanguage] = useState('cpp');
-  const [code, setCode] = useState(STARTER_CODE.cpp);
+  const initialLang = localStorage.getItem('devora_default_language') || 'cpp';
+  const [language, setLanguage] = useState(initialLang);
+  const [code, setCode] = useState(STARTER_CODE[initialLang]);
   const [userCode, setUserCode] = useState({ cpp: STARTER_CODE.cpp, java: STARTER_CODE.java });
 
   useEffect(() => {
@@ -58,7 +59,8 @@ const ProblemDetail = () => {
     // Save current code to the old language
     setUserCode((prev) => ({ ...prev, [language]: code }));
     setLanguage(newLang);
-    setCode(userCode[newLang]);
+    setCode(userCode[newLang] || '');
+    localStorage.setItem('devora_default_language', newLang);
   };
 
   const handleEditorChange = (value) => {

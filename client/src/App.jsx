@@ -8,6 +8,9 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Problems from './pages/Problems';
 import ProblemDetail from './pages/ProblemDetail';
+import CreateBattle from './pages/CreateBattle';
+import JoinBattle from './pages/JoinBattle';
+import BattleLobby from './pages/BattleLobby';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 
@@ -34,6 +37,9 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/problems" element={<Problems />} />
           <Route path="/problems/:slug" element={<ProblemDetail />} />
+          <Route path="/battles/create" element={<CreateBattle />} />
+          <Route path="/battles/join" element={<JoinBattle />} />
+          <Route path="/battles/:roomCode" element={<BattleLobby />} />
           {/* Default protected redirect */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
         </Route>
