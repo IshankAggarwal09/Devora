@@ -71,7 +71,7 @@ export const getProblems = async (req, res) => {
       query.topics = { $in: req.query.topics.split(',') };
     }
 
-    const problems = await Problem.find(query).select('-testCases');
+    const problems = await Problem.find(query).sort({ title: 1 }).select('-testCases');
     res.status(200).json(problems);
   } catch (error) {
     console.error('Error fetching problems:', error);

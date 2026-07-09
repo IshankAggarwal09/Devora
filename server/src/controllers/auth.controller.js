@@ -38,6 +38,7 @@ export const signup = async (req, res) => {
           name: userExists.name,
           email: userExists.email,
           avatarUrl: userExists.avatarUrl,
+          isAdmin: userExists.isAdmin,
         });
       }
     }
@@ -58,6 +59,7 @@ export const signup = async (req, res) => {
         name: user.name,
         email: user.email,
         avatarUrl: user.avatarUrl,
+        isAdmin: user.isAdmin,
       });
     } else {
       return res.status(400).json({ error: 'Invalid user data' });
@@ -81,6 +83,7 @@ export const login = async (req, res) => {
         name: user.name,
         email: user.email,
         avatarUrl: user.avatarUrl,
+        isAdmin: user.isAdmin,
       });
     } else {
       return res.status(401).json({ error: 'Invalid email or password' });

@@ -67,6 +67,14 @@ const Navbar = () => {
                 >
                   Dashboard
                 </Link>
+                {user.isAdmin && (
+                  <Link
+                    to="/admin"
+                    className="text-sm font-medium text-signal hover:opacity-80 transition-colors"
+                  >
+                    Admin
+                  </Link>
+                )}
                 <div className="flex items-center gap-4 border-l border-hairline pl-6">
                   <div className="h-8 w-8 rounded-sm bg-ink border border-hairline flex items-center justify-center overflow-hidden">
                     {user.avatarUrl ? (

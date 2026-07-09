@@ -12,6 +12,9 @@ import CreateBattle from './pages/CreateBattle';
 import JoinBattle from './pages/JoinBattle';
 import BattleLobby from './pages/BattleLobby';
 import ProtectedRoute from './components/ProtectedRoute';
+import AdminRoute from './components/AdminRoute';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminCreateProblem from './pages/AdminCreateProblem';
 import Navbar from './components/Navbar';
 
 function App() {
@@ -42,6 +45,12 @@ function App() {
           <Route path="/battles/:roomCode" element={<BattleLobby />} />
           {/* Default protected redirect */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        </Route>
+
+        {/* Admin Routes */}
+        <Route element={<AdminRoute />}>
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin/new" element={<AdminCreateProblem />} />
         </Route>
         
         {/* Fallback */}

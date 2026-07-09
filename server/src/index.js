@@ -8,6 +8,7 @@ import connectDB from './config/db.js';
 import authRoutes from './routes/auth.routes.js';
 import problemRoutes from './routes/problem.routes.js';
 import battleRoutes from './routes/battle.routes.js';
+import userRoutes from './routes/user.routes.js';
 import { initSocket } from './socket.js';
 import './config/passport.js';
 
@@ -36,6 +37,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/problems', problemRoutes);
 app.use('/api/battles', battleRoutes);
+app.use('/api/users', userRoutes);
 
 const PORT = process.env.PORT || 5000;
 
