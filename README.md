@@ -95,7 +95,7 @@ Devora/
 
 ### 1. Clone and install
 ```bash
-git clone https://github.com/<your-username>/devora.git
+git clone https://github.com/IshankAggarwal09/devora.git
 cd devora
 npm install
 ```
