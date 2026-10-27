@@ -16,6 +16,7 @@ import AdminRoute from './components/AdminRoute';
 import AdminProblems from './pages/AdminDashboard';
 import AdminCreateProblem from './pages/AdminCreateProblem';
 import AdminEditProblem from './pages/AdminEditProblem';
+import KanbanBoard from './pages/KanbanBoard';
 import Navbar from './components/Navbar';
 
 function App() {
@@ -45,6 +46,7 @@ function App() {
               <Route path="/battles/create" element={<CreateBattle />} />
               <Route path="/battles/join" element={<JoinBattle />} />
               <Route path="/battles/:roomCode" element={<BattleLobby />} />
+              <Route path="/projects/:projectId/board" element={<KanbanBoard />} />
               {/* Default protected redirect */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
             </Route>

@@ -4,6 +4,7 @@ import problemsReducer from './problemsSlice';
 import submissionReducer from './submissionSlice';
 import battleReducer from './battleSlice';
 import adminReducer from './adminSlice';
+import taskReducer from './taskSlice';
 
 const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ const store = configureStore({
     submission: submissionReducer,
     battle: battleReducer,
     admin: adminReducer,
+    tasks: taskReducer,
   },
 });
 

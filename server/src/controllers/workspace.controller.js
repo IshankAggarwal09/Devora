@@ -57,6 +57,32 @@ export const getMyProjects = async (req, res) => {
   }
 };
 
+// GET /api/projects/:projectId
+export const getProjectById = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const project = await Project.findById(projectId)
+      .populate('owner', 'name email avatarUrl')
+      .populate('members.user', 'name email avatarUrl');
+
+    if (!project) {
+      return res.status(404).json({ error: 'Project not found' });
+    }
+
+    const isMember = project.members.some(
+      (m) => (m.user?._id || m.user).toString() === req.user._id.toString()
+    );
+    if (!isMember && project.visibility !== 'public') {
+      return res.status(403).json({ error: 'Access denied to this project' });
+    }
+
+    res.status(200).json(project);
+  } catch (error) {
+    console.error('Error fetching project:', error);
+    res.status(500).json({ error: 'Server error fetching project' });
+  }
+};
+
 // POST /api/projects/:projectId/invite
 export const inviteMember = async (req, res) => {
   try {

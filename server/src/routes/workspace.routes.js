@@ -2,6 +2,7 @@ import express from 'express';
 import {
   createProject,
   getMyProjects,
+  getProjectById,
   inviteMember,
   createTask,
   getProjectTasks,
@@ -22,6 +23,7 @@ router.use(protect);
 // ─── Projects ─────────────────────────────────────────────────────────────────
 router.post('/projects', createProject);
 router.get('/projects/mine', getMyProjects);
+router.get('/projects/:projectId', getProjectById);
 router.post('/projects/:projectId/invite', inviteMember);
 
 // ─── Tasks ────────────────────────────────────────────────────────────────────
