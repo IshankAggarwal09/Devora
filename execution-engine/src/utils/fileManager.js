@@ -13,6 +13,8 @@ export const writeSourceFile = async (dirPath, language, code) => {
     fileName = 'main.cpp';
   } else if (language === 'java') {
     fileName = 'Main.java';
+  } else if (language === 'python') {
+    fileName = 'solution.py';
   } else {
     throw new Error(`Unsupported language: ${language}`);
   }

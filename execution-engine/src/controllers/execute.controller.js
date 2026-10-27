@@ -18,15 +18,17 @@ export const executeCode = async (req, res) => {
 
     await writeSourceFile(dirPath, language, code);
 
-    const compileResult = await compileCode(uuid, dirPath, language);
-    if (!compileResult.success) {
-      return res.json({
-        verdict: 'compile_error',
-        stdout: '',
-        stderr: compileResult.stderr,
-        exitCode: 1,
-        executionTime: Date.now() - startTime,
-      });
+    if (language !== 'python') {
+      const compileResult = await compileCode(uuid, dirPath, language);
+      if (!compileResult.success) {
+        return res.json({
+          verdict: 'compile_error',
+          stdout: '',
+          stderr: compileResult.stderr,
+          exitCode: 1,
+          executionTime: Date.now() - startTime,
+        });
+      }
     }
 
     const runResult = await runCode(uuid, dirPath, language, input, timeLimit, memoryLimit);

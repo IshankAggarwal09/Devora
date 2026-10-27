@@ -69,7 +69,7 @@ const Navbar = () => {
                 </Link>
                 {user.isAdmin && (
                   <Link
-                    to="/admin"
+                    to="/admin/problems"
                     className="text-sm font-medium text-signal hover:opacity-80 transition-colors"
                   >
                     Admin

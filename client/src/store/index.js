@@ -3,6 +3,7 @@ import authReducer from './authSlice';
 import problemsReducer from './problemsSlice';
 import submissionReducer from './submissionSlice';
 import battleReducer from './battleSlice';
+import adminReducer from './adminSlice';
 
 const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ const store = configureStore({
     problems: problemsReducer,
     submission: submissionReducer,
     battle: battleReducer,
+    admin: adminReducer,
   },
 });
 

@@ -104,7 +104,7 @@ export const submitProblem = async (req, res) => {
       return res.status(404).json({ error: 'Problem not found' });
     }
 
-    if (!['cpp', 'java'].includes(language)) {
+    if (!['cpp', 'java', 'python'].includes(language)) {
       return res.status(400).json({ error: 'Unsupported language' });
     }
     
@@ -232,7 +232,7 @@ export const runProblem = async (req, res) => {
       return res.status(404).json({ error: 'Problem not found' });
     }
 
-    if (!['cpp', 'java'].includes(language)) {
+    if (!['cpp', 'java', 'python'].includes(language)) {
       return res.status(400).json({ error: 'Unsupported language' });
     }
     

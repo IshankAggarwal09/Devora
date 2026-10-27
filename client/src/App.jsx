@@ -13,8 +13,9 @@ import JoinBattle from './pages/JoinBattle';
 import BattleLobby from './pages/BattleLobby';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
-import AdminDashboard from './pages/AdminDashboard';
+import AdminProblems from './pages/AdminDashboard';
 import AdminCreateProblem from './pages/AdminCreateProblem';
+import AdminEditProblem from './pages/AdminEditProblem';
 import Navbar from './components/Navbar';
 
 function App() {
@@ -32,30 +33,34 @@ function App() {
         <Navbar />
         <div className="flex-grow">
           <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        
-        {/* Protected Routes */}
-        <Route element={<ProtectedRoute />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/problems" element={<Problems />} />
-          <Route path="/problems/:slug" element={<ProblemDetail />} />
-          <Route path="/battles/create" element={<CreateBattle />} />
-          <Route path="/battles/join" element={<JoinBattle />} />
-          <Route path="/battles/:roomCode" element={<BattleLobby />} />
-          {/* Default protected redirect */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        </Route>
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
 
-        {/* Admin Routes */}
-        <Route element={<AdminRoute />}>
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/new" element={<AdminCreateProblem />} />
-        </Route>
-        
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} replace />} />
-      </Routes>
+            {/* Protected Routes */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/profile" element={<Dashboard />} />
+              <Route path="/problems" element={<Problems />} />
+              <Route path="/problems/:slug" element={<ProblemDetail />} />
+              <Route path="/battles/create" element={<CreateBattle />} />
+              <Route path="/battles/join" element={<JoinBattle />} />
+              <Route path="/battles/:roomCode" element={<BattleLobby />} />
+              {/* Default protected redirect */}
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            </Route>
+
+            {/* Admin Routes */}
+            <Route element={<AdminRoute />}>
+              <Route path="/admin/problems" element={<AdminProblems />} />
+              <Route path="/admin/problems/new" element={<AdminCreateProblem />} />
+              <Route path="/admin/problems/:id/edit" element={<AdminEditProblem />} />
+              {/* Legacy /admin redirect */}
+              <Route path="/admin" element={<Navigate to="/admin/problems" replace />} />
+            </Route>
+
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
+          </Routes>
         </div>
       </div>
     </Router>

@@ -6,6 +6,7 @@ import { fetchBattle } from '../store/battleSlice';
 import useBattleSocket from '../hooks/useBattleSocket';
 import BattleActive from '../components/BattleActive';
 import BattleResults from '../components/BattleResults';
+import ReconnectingOverlay from '../components/ReconnectingOverlay';
 
 const BattleLobby = () => {
   const { roomCode } = useParams();
@@ -22,8 +23,8 @@ const BattleLobby = () => {
     dispatch(fetchBattle(roomCode));
   }, [dispatch, roomCode]);
 
-  // Connect socket
-  const socket = useBattleSocket(roomCode, (err) => {
+  // Connect socket and track reconnection state
+  const { socket, isReconnecting } = useBattleSocket(roomCode, (err) => {
     setSocketError(typeof err === 'string' ? err : (err?.message || 'An error occurred.'));
   });
 
@@ -72,15 +73,26 @@ const BattleLobby = () => {
   );
 
   if (currentBattle.status === 'in_progress') {
-    return <BattleActive socket={socket} />;
+    return (
+      <>
+        <ReconnectingOverlay isVisible={isReconnecting} roomCode={roomCode} />
+        <BattleActive socket={socket} />
+      </>
+    );
   }
 
   if (currentBattle.status === 'completed') {
-    return <BattleResults />;
+    return (
+      <>
+        <ReconnectingOverlay isVisible={isReconnecting} roomCode={roomCode} />
+        <BattleResults />
+      </>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-ink text-foreground p-6 sm:p-12">
+    <div className="min-h-screen bg-ink text-foreground p-6 sm:p-12 relative">
+      <ReconnectingOverlay isVisible={isReconnecting} roomCode={roomCode} />
       <div className="max-w-4xl mx-auto space-y-8">
         
         {/* Header / Room Code */}

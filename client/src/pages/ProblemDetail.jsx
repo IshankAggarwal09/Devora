@@ -1,21 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import ReactMarkdown from 'react-markdown';
 import Editor from '@monaco-editor/react';
-import { Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { fetchProblemBySlug, clearCurrentProblem } from '../store/problemsSlice';
 import { submitSolution, runSolution, clearSubmission, fetchLatestSubmission } from '../store/submissionSlice';
+import ProblemDescription from '../components/ProblemDescription';
 
-const DIFFICULTY_COLORS = {
-  easy: 'bg-verdict-green/20 text-verdict-green',
-  medium: 'bg-host-amber/20 text-host-amber',
-  hard: 'bg-verdict-red/20 text-verdict-red',
-};
+
 
 const STARTER_CODE = {
   cpp: '#include <iostream>\nusing namespace std;\n\nint main() {\n    // Your code here\n    return 0;\n}\n',
   java: 'public class Main {\n    public static void main(String[] args) {\n        // Your code here\n    }\n}\n',
+  python: 'def solution():\n    # Your code here\n    pass\n\nif __name__ == "__main__":\n    solution()\n',
 };
 
 const ProblemDetail = () => {
@@ -27,8 +24,12 @@ const ProblemDetail = () => {
 
   const initialLang = localStorage.getItem('devora_default_language') || 'cpp';
   const [language, setLanguage] = useState(initialLang);
-  const [code, setCode] = useState(STARTER_CODE[initialLang]);
-  const [userCode, setUserCode] = useState({ cpp: STARTER_CODE.cpp, java: STARTER_CODE.java });
+  const [code, setCode] = useState(STARTER_CODE[initialLang] || STARTER_CODE.cpp);
+  const [userCode, setUserCode] = useState({
+    cpp: STARTER_CODE.cpp,
+    java: STARTER_CODE.java,
+    python: STARTER_CODE.python,
+  });
 
   useEffect(() => {
     dispatch(fetchProblemBySlug(slug));
@@ -59,7 +60,7 @@ const ProblemDetail = () => {
     // Save current code to the old language
     setUserCode((prev) => ({ ...prev, [language]: code }));
     setLanguage(newLang);
-    setCode(userCode[newLang] || '');
+    setCode(userCode[newLang] || STARTER_CODE[newLang] || '');
     localStorage.setItem('devora_default_language', newLang);
   };
 
@@ -111,58 +112,8 @@ const ProblemDetail = () => {
   return (
     <div className="min-h-screen bg-ink text-foreground flex flex-col lg:flex-row h-[calc(100vh-4rem)]">
       {/* Left Pane: Description */}
-      <div className="w-full lg:w-[45%] h-full overflow-y-auto border-r border-hairline p-6 space-y-8">
-        <div>
-          <Link to="/problems" className="inline-flex items-center text-muted hover:text-foreground text-sm mb-6 transition-colors">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Practice
-          </Link>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold font-display">{currentProblem.title}</h1>
-            {isSolved && <CheckCircle2 className="w-6 h-6 text-verdict-green" />}
-          </div>
-          <div className="flex gap-2 mt-4">
-            <span className={`text-xs font-semibold px-2 py-1 rounded-sm uppercase tracking-wider ${DIFFICULTY_COLORS[currentProblem.difficulty]}`}>
-              {currentProblem.difficulty}
-            </span>
-          </div>
-        </div>
-
-        <div className="prose prose-invert prose-p:text-foreground/90 prose-headings:font-display prose-headings:text-foreground max-w-none">
-          <ReactMarkdown>{currentProblem.description}</ReactMarkdown>
-        </div>
-
-        {currentProblem.testCases && currentProblem.testCases.length > 0 && (
-          <div className="space-y-6">
-            <h3 className="text-lg font-bold font-display border-b border-hairline pb-2">Sample Test Cases</h3>
-            {currentProblem.testCases.map((tc, index) => (
-              <div key={tc._id || index} className="bg-surface border border-hairline rounded-sm overflow-hidden font-utility text-sm">
-                <div className="bg-hairline/30 px-4 py-2 border-b border-hairline font-bold text-muted">
-                  Test Case {index + 1}
-                </div>
-                <div className="p-4 space-y-4">
-                  <div>
-                    <div className="text-muted mb-1 text-xs uppercase tracking-wider">Input:</div>
-                    <pre className="text-foreground whitespace-pre-wrap break-words">{tc.input}</pre>
-                  </div>
-                  <div>
-                    <div className="text-muted mb-1 text-xs uppercase tracking-wider">Expected Output:</div>
-                    <pre className="text-foreground whitespace-pre-wrap break-words">{tc.expectedOutput}</pre>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="space-y-2">
-          <h3 className="text-lg font-bold font-display border-b border-hairline pb-2">Constraints</h3>
-          <ul className="list-disc pl-5 space-y-1 text-foreground/80 font-utility text-sm">
-            {currentProblem.constraints?.map((constraint, i) => (
-              <li key={i}>{constraint}</li>
-            ))}
-          </ul>
-        </div>
+      <div className="w-full lg:w-[45%] h-full border-r border-hairline overflow-hidden">
+        <ProblemDescription problem={currentProblem} isSolved={isSolved} />
       </div>
 
       {/* Right Pane: Editor & Output */}
@@ -176,6 +127,7 @@ const ProblemDetail = () => {
           >
             <option value="cpp">C++</option>
             <option value="java">Java</option>
+            <option value="python">Python 3</option>
           </select>
           <div className="flex items-center gap-3">
             <button

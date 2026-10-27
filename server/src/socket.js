@@ -47,28 +47,155 @@ export const initSocket = (httpServer) => {
   io.on('connection', (socket) => {
     console.log(`Socket connected: ${socket.user.name} (${socket.id})`);
 
+    // --- Helper: handleRejoin ---
+    const handleRejoin = async (data = {}, callback) => {
+      const roomCode = typeof data === 'string' ? data : data?.roomCode;
+      const explicitUserId = data?.userId || data?.user?._id || data?.user?.id;
+      const effectiveUserId = (socket.user?._id || explicitUserId)?.toString();
+
+      console.log(`[socket] rejoin-battle requested by ${socket.user?.name || effectiveUserId} for room ${roomCode}`);
+
+      try {
+        if (!roomCode) {
+          const err = 'Room code is required to rejoin';
+          if (callback) callback({ error: err });
+          return socket.emit('battle:error', err);
+        }
+
+        const battle = await Battle.findOne({ roomCode })
+          .populate('participants.user', 'name avatarUrl githubId')
+          .populate('questions');
+
+        if (!battle) {
+          const err = 'Battle not found';
+          if (callback) callback({ error: err });
+          return socket.emit('battle:error', err);
+        }
+
+        // Validate that user is a registered participant
+        const participant = battle.participants.find((p) => {
+          const pUid = p.user?._id ? p.user._id.toString() : p.user?.toString();
+          return pUid === effectiveUserId;
+        });
+
+        if (!participant) {
+          console.log(`[socket] User ${effectiveUserId} is not a participant in ${roomCode}`);
+          const err = 'Not a registered participant in this battle';
+          if (callback) callback({ error: err });
+          return socket.emit('battle:error', err);
+        }
+
+        // Re-add to the Socket.IO room
+        socket.join(roomCode);
+        console.log(`[socket] User ${socket.user?.name || effectiveUserId} successfully rejoined room ${roomCode}`);
+
+        // Compute server-authoritative timer metrics
+        const serverTime = Date.now();
+        let timeElapsed = 0;
+        let timeRemaining = 0;
+
+        if (battle.startedAt && battle.duration) {
+          timeElapsed = Math.max(0, Math.floor((serverTime - new Date(battle.startedAt).getTime()) / 1000));
+          const totalDurationSec = battle.duration * 60;
+          timeRemaining = Math.max(0, totalDurationSec - timeElapsed);
+
+          // Check if time expired while disconnected
+          if (battle.status === 'in_progress' && timeRemaining <= 0) {
+            battle.status = 'completed';
+            battle.endedAt = Date.now();
+            await battle.save();
+          }
+        }
+
+        // Safe problem broadcast (strip hidden test cases so solutions aren't leaked)
+        const safeQuestions = (battle.questions || []).map((q) => {
+          const doc = q.toObject ? q.toObject() : { ...q };
+          if (doc.testCases) {
+            doc.testCases = doc.testCases.filter((tc) => tc.isSample === true);
+          }
+          return doc;
+        });
+
+        // Current leaderboard sorted by score (desc) then lastAcceptedAt (asc)
+        const sortedLeaderboard = [...battle.participants].sort((a, b) => {
+          if (b.score !== a.score) return (b.score || 0) - (a.score || 0);
+          if (!a.lastAcceptedAt) return 1;
+          if (!b.lastAcceptedAt) return -1;
+          return new Date(a.lastAcceptedAt).getTime() - new Date(b.lastAcceptedAt).getTime();
+        });
+
+        const battleState = {
+          roomCode: battle.roomCode,
+          status: battle.status,
+          startedAt: battle.startedAt,
+          duration: battle.duration,
+          serverTime,
+          timeElapsed,
+          timeRemaining,
+          questions: safeQuestions,
+          leaderboard: sortedLeaderboard,
+          participants: battle.participants,
+          userSubmissions: participant.solvedProblems || [],
+          myScore: participant.score || 0,
+          myPenalties: participant.penalties || 0,
+          hasFinished: participant.hasFinished || false,
+          host: battle.host,
+        };
+
+        if (callback) {
+          callback({ success: true, battleState });
+        }
+
+        // Emit back full battle state to rejoining client
+        socket.emit('rejoin-battle:success', battleState);
+        socket.emit('battle:rejoined', battleState);
+
+        // Notify room members
+        socket.to(roomCode).emit('battle:participant_reconnected', {
+          userId: effectiveUserId,
+          name: socket.user?.name || participant.user?.name || 'A participant',
+        });
+      } catch (err) {
+        console.error('Socket rejoin error:', err);
+        if (callback) callback({ error: 'Server error while rejoining battle' });
+      }
+    };
+
+    // Listen for rejoin-battle events
+    socket.on('rejoin-battle', handleRejoin);
+    socket.on('battle:rejoin', handleRejoin);
+
     // --- battle:join ---
     socket.on('battle:join', async (roomCode) => {
       console.log(`[socket] battle:join called by ${socket.user.name} for room ${roomCode}`);
       try {
-        const battle = await Battle.findOne({ roomCode }).populate('participants.user', 'name avatarUrl githubId');
+        const battle = await Battle.findOne({ roomCode })
+          .populate('participants.user', 'name avatarUrl githubId')
+          .populate('questions');
+
         if (!battle) {
           return socket.emit('battle:error', 'Battle not found');
         }
 
         // Verify they are in the participants array (REST should have done this)
-        const isParticipant = battle.participants.some(p => p.user._id.toString() === socket.user._id.toString());
+        const isParticipant = battle.participants.some(
+          (p) => p.user?._id?.toString() === socket.user._id.toString() || p.user?.toString() === socket.user._id.toString()
+        );
         if (!isParticipant) {
           console.log(`[socket] User ${socket.user.name} is not a participant in ${roomCode}`);
           return socket.emit('battle:error', 'Not a participant in this battle');
         }
 
+        // If the battle is already in progress or completed, route to rejoin flow to send full state
+        if (battle.status === 'in_progress' || battle.status === 'completed') {
+          return handleRejoin({ roomCode, userId: socket.user._id });
+        }
+
         socket.join(roomCode);
         console.log(`[socket] User ${socket.user.name} successfully joined socket room ${roomCode}`);
-        
+
         // Broadcast to others in room
         io.to(roomCode).emit('battle:participant_joined', battle.participants);
-        
       } catch (err) {
         console.error('Socket join error:', err);
       }

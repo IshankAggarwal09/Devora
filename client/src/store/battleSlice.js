@@ -49,6 +49,7 @@ const initialState = {
   error: null,
   serverTimeOffset: null,
   leaderboard: [],
+  userSubmissions: [],
 };
 
 const battleSlice = createSlice({
@@ -58,6 +59,7 @@ const battleSlice = createSlice({
     clearBattle(state) {
       state.currentBattle = null;
       state.error = null;
+      state.userSubmissions = [];
     },
     updateParticipants(state, action) {
       if (state.currentBattle) {
@@ -88,7 +90,35 @@ const battleSlice = createSlice({
         state.currentBattle.participants = action.payload;
       }
       state.leaderboard = action.payload;
-    }
+    },
+    battleRejoined(state, action) {
+      const payload = action.payload || {};
+      if (!state.currentBattle) {
+        state.currentBattle = {};
+      }
+      state.currentBattle.roomCode = payload.roomCode || state.currentBattle.roomCode;
+      state.currentBattle.status = payload.status || state.currentBattle.status;
+      state.currentBattle.startedAt = payload.startedAt || state.currentBattle.startedAt;
+      state.currentBattle.duration = payload.duration || state.currentBattle.duration;
+      if (payload.questions) {
+        state.currentBattle.questions = payload.questions;
+      }
+      if (payload.participants) {
+        state.currentBattle.participants = payload.participants;
+      }
+      if (payload.host) {
+        state.currentBattle.host = payload.host;
+      }
+      if (payload.leaderboard) {
+        state.leaderboard = payload.leaderboard;
+      }
+      if (payload.serverTime) {
+        state.serverTimeOffset = payload.serverTime - Date.now();
+      }
+      state.userSubmissions = payload.userSubmissions || [];
+      state.error = null;
+      state.isLoading = false;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -134,6 +164,14 @@ const battleSlice = createSlice({
   },
 });
 
-export const { clearBattle, updateParticipants, battleStarted, serverTimeSynced, leaderboardUpdated, battleEnded } = battleSlice.actions;
+export const {
+  clearBattle,
+  updateParticipants,
+  battleStarted,
+  serverTimeSynced,
+  leaderboardUpdated,
+  battleEnded,
+  battleRejoined,
+} = battleSlice.actions;
 
 export default battleSlice.reducer;

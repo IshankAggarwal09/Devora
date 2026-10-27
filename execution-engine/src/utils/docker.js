@@ -4,6 +4,10 @@ import util from 'util';
 const execPromise = util.promisify(exec);
 
 export const compileCode = async (uuid, dirPath, language) => {
+  if (language === 'python') {
+    return { success: true, stderr: '' };
+  }
+
   let command = '';
   if (language === 'cpp') {
     command = `docker run --rm -v ${dirPath}:/app devora-executor-cpp:latest g++ main.cpp -o main`;
@@ -31,6 +35,11 @@ export const runCode = (uuid, dirPath, language, input, timeLimit, memoryLimit) 
     } else if (language === 'java') {
       image = 'devora-executor-java:latest';
       runCommand = ['java', 'Main'];
+    } else if (language === 'python') {
+      image = 'devora-executor-python:latest';
+      runCommand = ['python3', 'solution.py'];
+    } else {
+      throw new Error(`Unsupported language for execution: ${language}`);
     }
 
     const containerName = `devora-run-${uuid}`;

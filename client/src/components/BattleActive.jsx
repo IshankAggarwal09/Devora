@@ -14,6 +14,7 @@ const DIFFICULTY_COLORS = {
 const STARTER_CODE = {
   cpp: '#include <iostream>\nusing namespace std;\n\nint main() {\n    // Your code here\n    return 0;\n}\n',
   java: 'public class Main {\n    public static void main(String[] args) {\n        // Your code here\n    }\n}\n',
+  python: 'def solution():\n    # Your code here\n    pass\n\nif __name__ == "__main__":\n    solution()\n',
 };
 
 const BattleActive = ({ socket }) => {
@@ -24,7 +25,7 @@ const BattleActive = ({ socket }) => {
   const [language, setLanguage] = useState(localStorage.getItem('devora_default_language') || 'cpp');
   
   // Track code for each question and language
-  // format: { [questionId]: { cpp: '...', java: '...' } }
+  // format: { [questionId]: { cpp: '...', java: '...', python: '...' } }
   const [userCode, setUserCode] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -35,18 +36,60 @@ const BattleActive = ({ socket }) => {
   const questions = currentBattle?.questions || [];
   const activeQuestion = questions[activeQuestionIndex];
 
-  // Initialize code state for questions
+  // Initialize code state for questions, restoring from localStorage if participant refreshed mid-battle
   useEffect(() => {
-    if (questions.length > 0 && Object.keys(userCode).length === 0) {
-      const initialCode = {};
-      questions.forEach((q) => {
-        initialCode[q._id] = { cpp: STARTER_CODE.cpp, java: STARTER_CODE.java };
-      });
-      setUserCode(initialCode);
-    }
-  }, [questions]);
+    if (questions.length > 0) {
+      const roomCode = currentBattle?.roomCode;
+      const storageKey = roomCode ? `devora_battle_${roomCode}_code` : null;
+      let cachedCode = {};
+      if (storageKey) {
+        try {
+          cachedCode = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        } catch (e) {
+          cachedCode = {};
+        }
+      }
 
-  // Timer logic
+      setUserCode((prev) => {
+        const next = { ...prev };
+        questions.forEach((q) => {
+          if (!next[q._id]) {
+            next[q._id] = cachedCode[q._id] || {
+              cpp: STARTER_CODE.cpp,
+              java: STARTER_CODE.java,
+              python: STARTER_CODE.python,
+            };
+          }
+        });
+        return next;
+      });
+    }
+  }, [questions, currentBattle?.roomCode]);
+
+  // Sync verdicts from Redux/participant submission history when rejoining mid-battle
+  const me = leaderboard?.find((p) => (p.user?._id || p.user) === (user?._id || user)) || 
+             currentBattle?.participants?.find((p) => (p.user?._id || p.user) === (user?._id || user));
+  const mySolved = me?.solvedProblems || [];
+
+  useEffect(() => {
+    if (mySolved && mySolved.length > 0) {
+      setVerdicts((prev) => {
+        const next = { ...prev };
+        mySolved.forEach((sp) => {
+          const pid = sp.problem?._id || sp.problem;
+          if (pid) {
+            next[pid] = {
+              verdict: sp.verdict,
+              timeTaken: sp.timeTaken,
+            };
+          }
+        });
+        return next;
+      });
+    }
+  }, [mySolved]);
+
+  // Server-authoritative timer logic
   useEffect(() => {
     if (!currentBattle?.startedAt || !currentBattle?.duration) return;
 
@@ -72,15 +115,31 @@ const BattleActive = ({ socket }) => {
     localStorage.setItem('devora_default_language', e.target.value);
   };
 
+  const isProblemSolved = (problemId) => {
+    return mySolved.some((sp) => {
+      if (typeof sp === 'string') return sp === problemId?.toString();
+      const pid = sp.problem?._id || sp.problem;
+      return pid?.toString() === problemId?.toString() && sp.verdict === 'Accepted';
+    });
+  };
+
   const handleEditorChange = (value) => {
     if (!activeQuestion) return;
-    setUserCode((prev) => ({
-      ...prev,
-      [activeQuestion._id]: {
-        ...prev[activeQuestion._id],
-        [language]: value || ''
+    setUserCode((prev) => {
+      const next = {
+        ...prev,
+        [activeQuestion._id]: {
+          ...prev[activeQuestion._id],
+          [language]: value || '',
+        },
+      };
+      if (currentBattle?.roomCode) {
+        try {
+          localStorage.setItem(`devora_battle_${currentBattle.roomCode}_code`, JSON.stringify(next));
+        } catch (e) {}
       }
-    }));
+      return next;
+    });
   };
 
   const handleSubmit = () => {
@@ -124,11 +183,6 @@ const BattleActive = ({ socket }) => {
   const currentCode = userCode[activeQuestion._id]?.[language] || '';
   const currentVerdict = verdicts[activeQuestion._id];
   
-  // Find current user's participant record to see solved problems
-  const me = leaderboard?.find(p => p.user?._id === user?._id) || 
-             currentBattle?.participants?.find(p => p.user?._id === user?._id);
-  const mySolved = me?.solvedProblems || [];
-
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header with Timer and Leaderboard */}
@@ -162,7 +216,7 @@ const BattleActive = ({ socket }) => {
           {/* Question Navigator */}
           <div className="flex overflow-x-auto bg-surface border-b border-hairline shrink-0">
             {questions.map((q, idx) => {
-              const isSolved = mySolved.includes(q._id);
+              const isSolved = isProblemSolved(q._id);
               return (
                 <button
                   key={q._id}
@@ -185,7 +239,7 @@ const BattleActive = ({ socket }) => {
             <div>
               <div className="flex items-center gap-3">
                 <h2 className="text-2xl font-bold font-display">{activeQuestion.title}</h2>
-                {mySolved.includes(activeQuestion._id) && <CheckCircle2 className="w-6 h-6 text-verdict-green" />}
+                {isProblemSolved(activeQuestion._id) && <CheckCircle2 className="w-6 h-6 text-verdict-green" />}
               </div>
               <div className="flex gap-2 mt-4">
                 <span className={`text-xs font-semibold px-2 py-1 rounded-sm uppercase tracking-wider ${DIFFICULTY_COLORS[activeQuestion.difficulty]}`}>
@@ -251,6 +305,7 @@ const BattleActive = ({ socket }) => {
             >
               <option value="cpp">C++</option>
               <option value="java">Java</option>
+              <option value="python">Python 3</option>
             </select>
             <button
               onClick={handleSubmit}
