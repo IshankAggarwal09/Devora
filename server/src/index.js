@@ -10,6 +10,7 @@ import problemRoutes from './routes/problem.routes.js';
 import battleRoutes from './routes/battle.routes.js';
 import userRoutes from './routes/user.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import workspaceRoutes from './routes/workspace.routes.js';
 import { initSocket } from './socket.js';
 import './config/passport.js';
 
@@ -40,6 +41,7 @@ app.use('/api/problems', problemRoutes);
 app.use('/api/battles', battleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api', workspaceRoutes);
 
 const PORT = process.env.PORT || 5000;
 
